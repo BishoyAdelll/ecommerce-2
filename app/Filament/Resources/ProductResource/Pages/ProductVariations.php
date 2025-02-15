@@ -12,6 +12,7 @@ use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Database\Eloquent\Model;
 
 class ProductVariations extends EditRecord
 {
@@ -79,6 +80,7 @@ class ProductVariations extends EditRecord
             });
             if(!empty($match)){
                 $existingEntry = reset($match);
+                $product['id'] = $existingEntry['id'];
                 $product['quantity'] = $existingEntry['quantity'];
                 $product['price'] = $existingEntry['price'];
             }else{
@@ -110,7 +112,7 @@ class ProductVariations extends EditRecord
             }
             $result=$temp;
         }
-        foreach ($result as $combination)
+        foreach ($result as &$combination)
         {
             if(count($combination) === count($variationTypes))
             {
@@ -118,6 +120,7 @@ class ProductVariations extends EditRecord
                 $combination['price']=$defaultPrice;
             }
         }
+
         return $result;
 
     }
@@ -128,17 +131,42 @@ class ProductVariations extends EditRecord
         foreach ($data['variations'] as $option) {
             $variationTypeOptionsIds = [];
             foreach ($this->record->variationTypes as $i => $variationType ) {
-                $variationTypeOptionsIds[] = $option['variation_type_'.($variationType->id)];
+                $variationTypeOptionsIds[] = $option['variation_type_' . ($variationType->id)]['id'];
 
             }
             $quantity = $option['quantity'];
             $price = $option['price'];
+
             $formattedData[]=[
-                'variation_type_option_ids' =>$variationTypeOptionsIds
+//                'id'=>$option['id'],
+                'variation_type_option_ids' =>$variationTypeOptionsIds,
+                'quantity'=>$quantity,
+                'price'=>$price,
             ];
         }
+        $data['variations'] = $formattedData;
 
 
         return$data;
+    }
+    protected function handleRecordUpdate(Model $record, array $data): Model
+    {
+        $variations = $data['variations'];
+
+        unset($data['variations']);
+
+        $variations = collect($variations)->map(function ($variation){
+            return [
+//                'id'=>$variation['id'],
+                'variation_type_option_ids'=>json_encode($variation['variation_type_option_ids']),
+                'quantity'=>$variation['quantity'],
+                'price'=>$variation['price'],
+            ];
+        })->toArray();
+
+        $record->variations()->delete();
+        $record->variations()->upsert($variations,['id'],['variation_type_option_ids','quantity','price']);
+        return $record;
+
     }
 }
