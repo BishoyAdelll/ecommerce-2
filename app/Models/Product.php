@@ -36,6 +36,9 @@ class Product extends Model  implements HasMedia
     public function scopePublished(Builder $query): Builder{
         return $query->where('status',ProductStatusEnum::Published);
     }
+    public function scopeForWebsites(Builder $query): Builder{
+        return $query->published();
+    }
     public function user(): BelongsTo   {
         return $this->belongsTo(User::class,'created_by');
     }
@@ -56,5 +59,19 @@ class Product extends Model  implements HasMedia
     public function variations(): HasMany
     {
         return  $this->hasMany(ProductVariation::class);
+    }
+    public function getPriceForOptions($optionIds = [])
+    {
+        $optionIds = array_values($optionIds);
+        sort($optionIds);
+        foreach ($this->variations as $variation) {
+//            dd($variation->variation_type_option_ids);
+            $a = $variation->variation_type_option_ids;
+            sort($a);
+            if($optionIds == $a){
+                    return $variation->price !== null ? $variation->price : $this->price;
+            }
+        }
+        return  $this->price;
     }
 }
